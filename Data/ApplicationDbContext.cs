@@ -17,47 +17,18 @@ namespace mySystem.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // Country configuration
             modelBuilder.Entity<Country>(entity =>
             {
                 entity.HasKey(e => e.Id);
-
-                entity.Property(e => e.Name)
-                    .IsRequired()
-                    .HasMaxLength(100);
-
-                entity.Property(e => e.Capital)
-                    .HasMaxLength(100);
-
-                entity.Property(e => e.Region)
-                    .HasMaxLength(100);
-
-                entity.Property(e => e.Population)
-                    .HasMaxLength(50);
-
-                entity.Property(e => e.UploadDateTime)
-                    .HasDefaultValueSql("GETUTCDATE()");
-
                 entity.HasIndex(e => e.UploadedByUserId);
                 entity.HasIndex(e => e.UploadDateTime);
             });
 
+            // User configuration
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasKey(e => e.Id);
-
-                entity.Property(e => e.Username)
-                    .IsRequired()
-                    .HasMaxLength(100);
-
-                entity.Property(e => e.Email)
-                    .HasMaxLength(100);
-
-                entity.Property(e => e.PasswordHash)
-                    .IsRequired();
-
-                entity.Property(e => e.CreatedAt)
-                    .HasDefaultValueSql("GETUTCDATE()");
-
                 entity.HasIndex(e => e.Username).IsUnique();
             });
         }

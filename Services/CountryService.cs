@@ -9,7 +9,7 @@ namespace mySystem.Services
     {
         Task<(bool success, string message, int count)> ProcessExcelUploadAsync(
             IFormFile file, 
-            Guid userId);  // Changed from int to Guid
+            Guid userId);
     }
 
     public class CountryService : ICountryService
@@ -17,7 +17,6 @@ namespace mySystem.Services
         private readonly ICountryRepository _repository;
         private readonly ILogger<CountryService> _logger;
 
-        // List of valid countries
         private readonly List<string> _validCountries = new List<string>
         {
             "India", "USA", "Japan", "Germany", "France", "Brazil", "Canada", 
@@ -34,30 +33,24 @@ namespace mySystem.Services
 
         public async Task<(bool success, string message, int count)> ProcessExcelUploadAsync(
             IFormFile file, 
-            Guid userId)  // Changed from int to Guid
+            Guid userId)
         {
             try
             {
-                // Validate file
                 var validationResult = ValidateFile(file);
                 if (!validationResult.isValid)
                     return (false, validationResult.message, 0);
 
-                // Parse Excel file
                 var (countries, invalidRows) = await ParseExcelFileAsync(file, userId);
 
-                // Check if any countries were found
                 if (countries.Count == 0)
                 {
                     return BuildErrorResponse(invalidRows);
                 }
 
-                // Save to database
-                var saved = await _repository.AddCountriesAsync(countries);
-                if (!saved)
-                    return (false, "Error saving data to database", 0);
+                // Call repository
+                await _repository.AddCountriesAsync(countries);
 
-                // Log success
                 _logger.LogInformation($"User {userId} uploaded {countries.Count} countries at {DateTime.UtcNow}");
                 
                 return BuildSuccessResponse(countries.Count, invalidRows);
@@ -117,10 +110,10 @@ namespace mySystem.Services
                         var country = new Country
                         {
                             Id = Guid.NewGuid(),
-                            Name = countryData.countryName,
-                            Capital = countryData.capital,
-                            Region = countryData.region,
-                            Population = countryData.population,
+                            Name = TruncateString(countryData.countryName, 100),
+                            Capital = TruncateString(countryData.capital, 100),
+                            Region = TruncateString(countryData.region, 100),
+                            Population = TruncateString(countryData.population, 50),
                             UploadedByUserId = userId,
                             UploadDateTime = DateTime.UtcNow
                         };
@@ -149,6 +142,13 @@ namespace mySystem.Services
         {
             return _validCountries.Any(c => 
                 c.Equals(countryName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private string TruncateString(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value))
+                return value;
+            return value.Length > maxLength ? value.Substring(0, maxLength) : value;
         }
 
         private (bool success, string message, int count) BuildErrorResponse(List<string> invalidRows)

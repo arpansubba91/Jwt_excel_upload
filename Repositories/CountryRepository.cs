@@ -6,8 +6,7 @@ namespace mySystem.Repositories
 {
     public interface ICountryRepository
     {
-        Task<bool> AddCountriesAsync(List<Country> countries);
-        Task<List<Country>> GetAllCountriesAsync();
+        Task AddCountriesAsync(List<Country> countries);
         Task<List<Country>> GetCountriesByUserIdAsync(Guid userId);
     }
 
@@ -20,23 +19,10 @@ namespace mySystem.Repositories
             _context = context;
         }
 
-        public async Task<bool> AddCountriesAsync(List<Country> countries)
+        public async Task AddCountriesAsync(List<Country> countries)
         {
-            try
-            {
-                await _context.Countries.AddRangeAsync(countries);
-                await _context.SaveChangesAsync();
-                return true;
-            }
-            catch
-            {
-                return false;
-            }
-        }
-
-        public async Task<List<Country>> GetAllCountriesAsync()
-        {
-            return await _context.Countries.ToListAsync();
+            await _context.Countries.AddRangeAsync(countries);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<List<Country>> GetCountriesByUserIdAsync(Guid userId)
