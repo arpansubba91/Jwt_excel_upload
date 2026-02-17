@@ -20,48 +20,48 @@ namespace mySystem.Controllers
         }
 
         [HttpPost("upload")]
-[Consumes("multipart/form-data")]
-public async Task<IActionResult> Upload([FromForm] IFormFile file)
-{
-    try
-    {
-        if (file == null || file.Length == 0)
-            return BadRequest(new { success = false, message = "No file selected" });
-
-        var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
-        if (userIdClaim == null || !int.TryParse(userIdClaim.Value, out int userId))
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> Upload([FromForm] IFormFile file)
         {
-            return Unauthorized(new { success = false, message = "Invalid user" });
-        }
-
-        var (success, message, count) = await _countryService.ProcessExcelUploadAsync(file, userId);
-
-        if (!success)
-        {
-            return BadRequest(new
+            try
             {
-                success = false,
-                message = message
-            });
-        }
+                if (file == null || file.Length == 0)
+                    return BadRequest(new { success = false, message = "No file selected" });
 
-        return Ok(new
-        {
-            success = true,
-            message = message,
-            countriesUploaded = count,
-            uploadedAt = DateTime.UtcNow,
-            uploadedByUserId = userId
-        });
+                var userIdClaim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out Guid userId))
+                {
+                    return Unauthorized(new { success = false, message = "Invalid user" });
+                }
+
+                var (success, message, count) = await _countryService.ProcessExcelUploadAsync(file, userId);
+
+                if (!success)
+                {
+                    return BadRequest(new
+                    {
+                        success = false,
+                        message = message
+                    });
+                }
+
+                return Ok(new
+                {
+                    success = true,
+                    message = message,
+                    countriesUploaded = count,
+                    uploadedAt = DateTime.UtcNow,
+                    uploadedByUserId = userId
+                });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new
+                {
+                    success = false,
+                    message = "Error uploading file: " + ex.Message
+                });
+            }
+        }
     }
-    catch (Exception ex)
-    {
-        return StatusCode(500, new
-        {
-            success = false,
-            message = "Error uploading file: " + ex.Message
-        });
-    }
-}
-}
 }

@@ -126,6 +126,7 @@ C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\mySystem.AssemblyInfo.cs
 C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\mySystem.csproj.CoreCompileInputs.cache
 C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\mySystem.MvcApplicationPartsAssemblyInfo.cs
 C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\mySystem.MvcApplicationPartsAssemblyInfo.cache
+C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\mySystem.sourcelink.json
 C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\staticwebassets.build.json
 C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\staticwebassets.development.json
 C:\Users\arpan\Desktop\back\mySystem\obj\Debug\net8.0\staticwebassets\msbuild.mySystem.Microsoft.AspNetCore.StaticWebAssets.props

@@ -9,7 +9,7 @@ namespace mySystem.Services
     {
         Task<(bool success, string message, int count)> ProcessExcelUploadAsync(
             IFormFile file, 
-            int userId);
+            Guid userId);  // Changed from int to Guid
     }
 
     public class CountryService : ICountryService
@@ -34,99 +34,143 @@ namespace mySystem.Services
 
         public async Task<(bool success, string message, int count)> ProcessExcelUploadAsync(
             IFormFile file, 
-            int userId)
+            Guid userId)  // Changed from int to Guid
         {
             try
             {
-                if (file == null || file.Length == 0)
-                    return (false, "File is empty", 0);
+                // Validate file
+                var validationResult = ValidateFile(file);
+                if (!validationResult.isValid)
+                    return (false, validationResult.message, 0);
 
-                if (!IsValidExcelFile(file))
-                    return (false, "File must be an Excel file (.xlsx or .xls)", 0);
+                // Parse Excel file
+                var (countries, invalidRows) = await ParseExcelFileAsync(file, userId);
 
-                var countries = new List<Country>();
-                var invalidRows = new List<string>();
-
-                using (var stream = new MemoryStream())
-                {
-                    await file.CopyToAsync(stream);
-                    stream.Position = 0;
-                    using (var package = new ExcelPackage(stream))
-                    {
-                        var worksheet = package.Workbook.Worksheets.FirstOrDefault();
-                        if (worksheet == null)
-                            return (false, "No worksheet found in Excel file", 0);
-
-                        for (int row = 2; row <= worksheet.Dimension?.Rows; row++)
-                        {
-                            var countryName = worksheet.Cells[row, 1].Value?.ToString()?.Trim() ?? "";
-                            var capital = worksheet.Cells[row, 2].Value?.ToString()?.Trim() ?? "";
-                            var region = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
-                            var population = worksheet.Cells[row, 4].Value?.ToString()?.Trim() ?? "";
-
-                            // Check if country name exists
-                            if (string.IsNullOrEmpty(countryName))
-                            {
-                                invalidRows.Add($"Row {row}: No country name");
-                                continue;
-                            }
-
-                            // Check if it's a valid country (case-insensitive)
-                            bool isValidCountry = _validCountries.Any(c => 
-                                c.Equals(countryName, StringComparison.OrdinalIgnoreCase));
-
-                            if (!isValidCountry)
-                            {
-                                invalidRows.Add($"Row {row}: '{countryName}' is not a valid country");
-                                continue;
-                            }
-
-                            // Valid country - add to list
-                            countries.Add(new Country
-                            {
-                                Name = countryName,
-                                Capital = capital,
-                                Region = region,
-                                Population = population,
-                                UploadedByUserId = userId,
-                                UploadDateTime = DateTime.UtcNow
-                            });
-                        }
-                    }
-                }
-
-                // If no valid countries found
+                // Check if any countries were found
                 if (countries.Count == 0)
                 {
-                    string errorMsg = "No valid country data found in Excel file. ";
-                    if (invalidRows.Count > 0)
-                    {
-                        errorMsg += $"Invalid rows: {string.Join(", ", invalidRows.Take(5))}";
-                        if (invalidRows.Count > 5)
-                            errorMsg += $" and {invalidRows.Count - 5} more...";
-                    }
-                    return (false, errorMsg, 0);
+                    return BuildErrorResponse(invalidRows);
                 }
 
-                // Save valid countries to database
+                // Save to database
                 var saved = await _repository.AddCountriesAsync(countries);
                 if (!saved)
                     return (false, "Error saving data to database", 0);
 
-                string successMsg = $"Successfully uploaded {countries.Count} countries";
-                if (invalidRows.Count > 0)
-                {
-                    successMsg += $". {invalidRows.Count} rows skipped (invalid or no country name)";
-                }
-
+                // Log success
                 _logger.LogInformation($"User {userId} uploaded {countries.Count} countries at {DateTime.UtcNow}");
-                return (true, successMsg, countries.Count);
+                
+                return BuildSuccessResponse(countries.Count, invalidRows);
             }
             catch (Exception ex)
             {
                 _logger.LogError($"Error processing Excel upload: {ex.Message}");
                 return (false, $"Error: {ex.Message}", 0);
             }
+        }
+
+        private (bool isValid, string message) ValidateFile(IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return (false, "File is empty");
+
+            if (!IsValidExcelFile(file))
+                return (false, "File must be an Excel file (.xlsx or .xls)");
+
+            return (true, "");
+        }
+
+        private async Task<(List<Country> countries, List<string> invalidRows)> ParseExcelFileAsync(
+            IFormFile file, 
+            Guid userId)
+        {
+            var countries = new List<Country>();
+            var invalidRows = new List<string>();
+
+            using (var stream = new MemoryStream())
+            {
+                await file.CopyToAsync(stream);
+                stream.Position = 0;
+                
+                using (var package = new ExcelPackage(stream))
+                {
+                    var worksheet = package.Workbook.Worksheets.FirstOrDefault();
+                    if (worksheet == null)
+                        return (countries, invalidRows);
+
+                    for (int row = 2; row <= worksheet.Dimension?.Rows; row++)
+                    {
+                        var countryData = ExtractCountryData(worksheet, row);
+                        
+                        if (string.IsNullOrEmpty(countryData.countryName))
+                        {
+                            invalidRows.Add($"Row {row}: No country name");
+                            continue;
+                        }
+
+                        if (!IsValidCountry(countryData.countryName))
+                        {
+                            invalidRows.Add($"Row {row}: '{countryData.countryName}' is not a valid country");
+                            continue;
+                        }
+
+                        var country = new Country
+                        {
+                            Id = Guid.NewGuid(),
+                            Name = countryData.countryName,
+                            Capital = countryData.capital,
+                            Region = countryData.region,
+                            Population = countryData.population,
+                            UploadedByUserId = userId,
+                            UploadDateTime = DateTime.UtcNow
+                        };
+
+                        countries.Add(country);
+                    }
+                }
+            }
+
+            return (countries, invalidRows);
+        }
+
+        private (string countryName, string capital, string region, string population) ExtractCountryData(
+            ExcelWorksheet worksheet, 
+            int row)
+        {
+            var countryName = worksheet.Cells[row, 1].Value?.ToString()?.Trim() ?? "";
+            var capital = worksheet.Cells[row, 2].Value?.ToString()?.Trim() ?? "";
+            var region = worksheet.Cells[row, 3].Value?.ToString()?.Trim() ?? "";
+            var population = worksheet.Cells[row, 4].Value?.ToString()?.Trim() ?? "";
+
+            return (countryName, capital, region, population);
+        }
+
+        private bool IsValidCountry(string countryName)
+        {
+            return _validCountries.Any(c => 
+                c.Equals(countryName, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private (bool success, string message, int count) BuildErrorResponse(List<string> invalidRows)
+        {
+            string errorMsg = "No valid country data found in Excel file. ";
+            if (invalidRows.Count > 0)
+            {
+                errorMsg += $"Invalid rows: {string.Join(", ", invalidRows.Take(5))}";
+                if (invalidRows.Count > 5)
+                    errorMsg += $" and {invalidRows.Count - 5} more...";
+            }
+            return (false, errorMsg, 0);
+        }
+
+        private (bool success, string message, int count) BuildSuccessResponse(int uploadedCount, List<string> invalidRows)
+        {
+            string successMsg = $"Successfully uploaded {uploadedCount} countries";
+            if (invalidRows.Count > 0)
+            {
+                successMsg += $". {invalidRows.Count} rows skipped (invalid or no country name)";
+            }
+            return (true, successMsg, uploadedCount);
         }
 
         private bool IsValidExcelFile(IFormFile file)

@@ -8,7 +8,7 @@ namespace mySystem.Repositories
     {
         Task<bool> AddCountriesAsync(List<Country> countries);
         Task<List<Country>> GetAllCountriesAsync();
-        Task<List<Country>> GetCountriesByUserIdAsync(int userId);
+        Task<List<Country>> GetCountriesByUserIdAsync(Guid userId);
     }
 
     public class CountryRepository : ICountryRepository
@@ -28,7 +28,7 @@ namespace mySystem.Repositories
                 await _context.SaveChangesAsync();
                 return true;
             }
-            catch (Exception ex)
+            catch
             {
                 return false;
             }
@@ -39,7 +39,7 @@ namespace mySystem.Repositories
             return await _context.Countries.ToListAsync();
         }
 
-        public async Task<List<Country>> GetCountriesByUserIdAsync(int userId)
+        public async Task<List<Country>> GetCountriesByUserIdAsync(Guid userId)
         {
             return await _context.Countries
                 .Where(c => c.UploadedByUserId == userId)
